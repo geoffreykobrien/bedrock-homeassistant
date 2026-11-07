@@ -1,8 +1,8 @@
 # Changelog
 
-To release: bump the version (see below), add a section here, and push to `main`.
-(and `VERSION` in `const.py` / `CARD_VERSION` in the card), add a section below,
-and push to `main`. The Release workflow tags it and HACS picks it up.
+To release: bump `version` in `manifest.json` (plus `VERSION` in `const.py` and
+`CARD_VERSION` in the card), add a section below, and push to `main`. The Release
+workflow tags it and HACS picks it up.
 
 ## 0.1.1
 
