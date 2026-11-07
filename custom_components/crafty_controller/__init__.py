@@ -12,7 +12,7 @@ from homeassistant.components.frontend import add_extra_js_url
 from homeassistant.components.http import StaticPathConfig
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_API_TOKEN, CONF_URL, Platform
-from homeassistant.core import HomeAssistant, ServiceCall
+from homeassistant.core import HomeAssistant, ServiceCall, callback
 from homeassistant.exceptions import HomeAssistantError, ServiceValidationError
 from homeassistant.helpers import config_validation as cv, device_registry as dr
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
@@ -109,6 +109,20 @@ async def async_setup_entry(hass: HomeAssistant, entry: CraftyConfigEntry) -> bo
     await coordinator.async_config_entry_first_refresh()
     entry.runtime_data = CraftyRuntimeData(coordinator)
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
+
+    # Parent each server device to the Crafty hub device (via_device_id).
+    @callback
+    def _link_devices() -> None:
+        registry = dr.async_get(hass)
+        hub = registry.async_get_device(identifiers={(DOMAIN, entry.entry_id)})
+        if hub is None:
+            return
+        for device in dr.async_entries_for_config_entry(registry, entry.entry_id):
+            if device.id != hub.id and device.via_device_id != hub.id:
+                registry.async_update_device(device.id, via_device_id=hub.id)
+
+    _link_devices()
+    entry.async_on_unload(coordinator.async_add_listener(_link_devices))
     entry.async_on_unload(entry.add_update_listener(_async_options_updated))
     return True
 

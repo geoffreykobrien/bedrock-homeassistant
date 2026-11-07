@@ -39,7 +39,6 @@ class CraftyServerEntity(CoordinatorEntity[CraftyCoordinator]):
             manufacturer="Crafty Controller",
             model=("Minecraft Bedrock" if server and server.bedrock else "Minecraft Java"),
             sw_version=server.version if server else None,
-            via_device=hub_identifier(coordinator),
             configuration_url=f"{coordinator.api.url}/panel/server_detail?id={server_id}",
         )
 

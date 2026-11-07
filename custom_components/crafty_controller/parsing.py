@@ -48,8 +48,14 @@ class LogState:
 
 
 def parse_log(lines: list[str]) -> LogState:
-    """Replay join/leave lines; a server start resets the online list."""
+    """Replay a full log from scratch."""
     state = LogState()
+    apply_log_lines(state, lines)
+    return state
+
+
+def apply_log_lines(state: LogState, lines: list[str]) -> None:
+    """Apply join/leave lines to `state` in order; a server start resets it."""
     for line in lines:
         if _BEDROCK_START.search(line):
             state.players.clear()
@@ -76,7 +82,6 @@ def parse_log(lines: list[str]) -> LogState:
             continue
         if m := _JAVA_LEAVE.search(line):
             state.players.pop(m.group("name").lower(), None)
-    return state
 
 
 def _bedrock_time(line: str) -> datetime | None:

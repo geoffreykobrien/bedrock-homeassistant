@@ -34,7 +34,9 @@ from .const import (
     PLAYER_SOURCE_LOGS,
 )
 from .parsing import (
+    LogState,
     Player,
+    apply_log_lines,
     clean_str,
     is_bedrock,
     parse_crafty_players,
@@ -103,6 +105,10 @@ class CraftyCoordinator(DataUpdateCoordinator[CraftyData]):
         self._host_supported = True
         self._first = True
         self._warned: set[str] = set()
+        # Incremental tracking for servers read from Crafty's console buffer.
+        self._log_states: dict[str, LogState] = {}
+        self._seen_lines: dict[str, set[str]] = {}
+        self._log_started: dict[str, Any] = {}
         self.pending_events: list[PlayerEvent] = []
 
     def _warn_once(self, key: str, msg: str, *args: Any) -> None:
@@ -195,8 +201,8 @@ class CraftyCoordinator(DataUpdateCoordinator[CraftyData]):
         if result.running:
             if source == PLAYER_SOURCE_LOGS:
                 try:
-                    log = parse_log(await self.api.async_get_logs(sid, from_file=True))
-                    result.players = log.players
+                    log = await self._async_read_players(sid, info, stats)
+                    result.players = dict(log.players)
                     log_version = log.version
                 except CraftyAuthError as err:
                     raise ConfigEntryAuthFailed(str(err)) from err
@@ -219,11 +225,44 @@ class CraftyCoordinator(DataUpdateCoordinator[CraftyData]):
                     joined = prev.players[key].joined if prev and key in prev.players else now
                     result.players[key] = Player(name=name, joined=joined)
 
+        if not result.running:
+            self._log_states.pop(sid, None)
+            self._seen_lines.pop(sid, None)
+
         version = clean_str(stats.get("version")) or log_version or self._versions.get(sid)
         if version:
             self._versions[sid] = version
         result.version = version
         return result
+
+    async def _async_read_players(
+        self, sid: str, info: dict[str, Any], stats: dict[str, Any]
+    ) -> LogState:
+        """Work out who is online from the server's log output.
+
+        Servers with a log file in Crafty are replayed from the file. Servers
+        without one (Crafty's Bedrock default) only expose the live console
+        buffer, which drops old lines, so those are tracked incrementally:
+        only lines not seen on the previous poll are applied to a persistent
+        state, which is reset when the server restarts.
+        """
+        if clean_str(info.get("log_path")):
+            lines = await self.api.async_get_logs(sid, from_file=True)
+            if lines:
+                return parse_log(lines)
+
+        lines = await self.api.async_get_logs(sid, from_file=False)
+        started = stats.get("started")
+        state = self._log_states.get(sid)
+        if state is None or self._log_started.get(sid) != started:
+            state = LogState()
+            self._log_states[sid] = state
+            self._seen_lines[sid] = set()
+            self._log_started[sid] = started
+        seen = self._seen_lines[sid]
+        apply_log_lines(state, [line for line in lines if line not in seen])
+        self._seen_lines[sid] = set(lines)
+        return state
 
     @callback
     def _diff_players(self, new: CraftyData) -> None:

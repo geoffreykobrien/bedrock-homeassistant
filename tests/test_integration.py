@@ -118,6 +118,48 @@ async def test_missing_logs_permission(hass, aioclient_mock, caplog):
     assert hass.states.get("sensor.crafty_controller_host_cpu").state == "unavailable"
 
 
+async def test_console_buffer_tracking(hass, aioclient_mock):
+    """Crafty Bedrock servers have no log file; players come from the console buffer."""
+    server = {**SERVER, "log_path": ""}
+
+    def mock(buffer):
+        aioclient_mock.clear_requests()
+        aioclient_mock.get(f"{URL}/api/v2/servers", json={"status": "ok", "data": [server]})
+        s = stats(server)
+        s["data"]["server_id"] = server
+        aioclient_mock.get(f"{URL}/api/v2/servers/{SID}/stats", json=s)
+        aioclient_mock.get(f"{URL}/api/v2/servers/{SID}/logs", params={"file": "false"},
+                           json={"status": "ok", "data": buffer})
+        aioclient_mock.get(f"{URL}/metrics/host", text="CPU_Usage 1\n")
+
+    mock(LOG)
+    entry = MockConfigEntry(domain=DOMAIN, unique_id=URL,
+                            data={CONF_URL: URL, CONF_API_TOKEN: "tok", CONF_VERIFY_SSL: False})
+    entry.add_to_hass(hass)
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+    assert hass.states.get("sensor.bedrock_creative_players_online").state == "1"
+
+    # The buffer rolls over: the original join line is gone, a new player joins.
+    mock(["[2026-11-07 17:30:00:001 INFO] Player connected: Grace, xuid: 2535433333333333"])
+    async_fire_time_changed(hass, dt_util.utcnow() + timedelta(seconds=31))
+    await hass.async_block_till_done(wait_background_tasks=True)
+    players = hass.states.get("sensor.bedrock_creative_players_online")
+    assert players.state == "2"
+    assert players.attributes["players"] == ["Grace", "Liam OB"]
+
+    # Same buffer again: nothing is double-counted.
+    async_fire_time_changed(hass, dt_util.utcnow() + timedelta(seconds=62))
+    await hass.async_block_till_done(wait_background_tasks=True)
+    assert hass.states.get("sensor.bedrock_creative_players_online").state == "2"
+
+    # Hub/server device linkage uses via_device_id.
+    devs = dr.async_get(hass)
+    hub = devs.async_get_device(identifiers={(DOMAIN, entry.entry_id)})
+    srv = next(d for d in devs.devices.values() if d.name == "Bedrock Creative")
+    assert srv.via_device_id == hub.id
+
+
 async def test_entities_and_values(hass, aioclient_mock):
     await setup(hass, aioclient_mock)
     assert hass.states.get("binary_sensor.bedrock_creative_running").state == "on"
