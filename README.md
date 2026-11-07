@@ -32,9 +32,54 @@ Copy `custom_components/crafty_controller` into your `config/custom_components/`
 
 ## Setup
 
-1. **Create an API token in Crafty.** Go to **Users**, edit your user, open **API Keys**, and create one. Superuser is simplest, though a key with access to your servers also works. Then click **Get Token** and copy the string.
+1. Create a Crafty API token. See [Creating the Crafty API token](#creating-the-crafty-api-token) below.
 2. In Home Assistant, go to **Settings → Devices & services → Add integration → Crafty Controller**.
 3. Enter the Crafty URL (for example `https://192.168.1.50:8443`) and the token. Leave **Verify SSL** off if Crafty uses its default self-signed certificate.
+
+## Creating the Crafty API token
+
+A Crafty API key belongs to a Crafty user. It can never do more than that user can, and it only sees servers that user has access to. You have two options:
+
+- **Option A (quick):** a Full Access key on your own superuser account.
+- **Option B (recommended):** a dedicated `homeassistant` user that only has the permissions this integration needs.
+
+### What each permission is used for
+
+| Integration feature | Crafty permission on the key |
+|---|---|
+| Discover servers; Running, Crashed, CPU, Memory, World size, Version, Started | The server must be in the user's role (no specific checkbox) |
+| Players online, who's online, join/leave events (log tracking, needed for Bedrock) | **Logs** |
+| Start, Stop, Restart and Force kill buttons; server switch | **Commands** |
+| Backup button | **Backup** |
+| `crafty_controller.send_command` service | **Terminal** |
+| Update server software button | **Config** |
+| Host CPU and Host memory sensors | **Full Access** only. They stay unavailable otherwise, which is harmless |
+
+A read-only dashboard only needs **Logs**. Leave out Commands, Backup, Terminal and Config if you don't want Home Assistant to be able to control the servers. The matching buttons will just return an error.
+
+> If a server shows as unavailable, or players never appear, the Home Assistant log will say which permission is missing. Some Crafty versions have been reported to require Full Access even for the stats endpoint. If a narrow key can't read stats, use Option A.
+
+### Option A: Full Access key on your account
+
+1. In Crafty, open **Panel Config → Users** and click **Edit** on your user.
+2. Open the **API Keys** tab.
+3. Enter a name (for example `homeassistant`), tick **Full Access**, and click **Create**.
+4. In the key list, click **Get A Token** next to the new key and copy the long string it shows.
+
+This token can do anything your account can, so treat it like a password. To revoke it, delete the key from the same tab.
+
+### Option B: dedicated user with only the needed permissions
+
+1. **Create a role.** Go to **Panel Config → Roles → Add role** and name it `Home Assistant`. Add every server Home Assistant should see, and for each one tick the permissions from the table above (for example **Logs**, **Commands**, **Backup** and **Terminal**). Save.
+2. **Create a user.** Go to **Panel Config → Users → Add user** and name it `homeassistant`. Give it any strong password (it's never used to log in), assign the **Home Assistant** role, leave **Superuser** off, and save.
+3. **Create the key.** Edit the `homeassistant` user and open the **API Keys** tab. Enter a name, tick the same permissions you gave the role, and click **Create**.
+4. Click **Get A Token** and copy the string.
+
+New servers you create later won't appear in Home Assistant until you add them to the role.
+
+### Changing the token later
+
+Go to **Settings → Devices & services → Crafty Controller → ⋮ → Reconfigure** and paste the new token. If Crafty starts rejecting the token, Home Assistant will show a **Re-authenticate** prompt.
 
 ## Dashboard card
 

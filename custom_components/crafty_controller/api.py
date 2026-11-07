@@ -81,12 +81,17 @@ class CraftyApi:
         if payload.get("status") != "ok":
             error = payload.get("error") or payload.get("error_data") or resp.status
             if str(error).upper() in {"ACCESS_DENIED", "NOT_AUTHORIZED", "INVALID_TOKEN"}:
-                raise CraftyAuthError(str(error))
+                raise CraftyPermissionError(f"{error} on {path}")
             raise CraftyError(f"Crafty error on {path}: {error}")
         return payload.get("data")
 
     async def async_get_servers(self) -> list[dict[str, Any]]:
-        data = await self._request("GET", "/api/v2/servers")
+        # Crafty answers a bad/expired token with 403 ACCESS_DENIED rather than
+        # 401, so a denial on the most basic call means the token itself is bad.
+        try:
+            data = await self._request("GET", "/api/v2/servers")
+        except CraftyPermissionError as err:
+            raise CraftyAuthError(str(err)) from err
         return data if isinstance(data, list) else []
 
     async def async_get_stats(self, server_id: str) -> dict[str, Any]:

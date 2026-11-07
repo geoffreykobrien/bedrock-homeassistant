@@ -89,6 +89,35 @@ async def test_user_flow_bad_token(hass, aioclient_mock):
     assert result["errors"] == {"base": "invalid_auth"}
 
 
+async def test_user_flow_crafty_403(hass, aioclient_mock):
+    """Crafty answers a bad token with 403 ACCESS_DENIED."""
+    aioclient_mock.get(f"{URL}/api/v2/servers", status=403,
+                       json={"status": "error", "error": "ACCESS_DENIED"})
+    result = await hass.config_entries.flow.async_init(DOMAIN, context={"source": config_entries.SOURCE_USER})
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], {CONF_URL: URL, CONF_API_TOKEN: "bad", CONF_VERIFY_SSL: False})
+    assert result["errors"] == {"base": "invalid_auth"}
+
+
+async def test_missing_logs_permission(hass, aioclient_mock, caplog):
+    mock_all(aioclient_mock)
+    aioclient_mock.clear_requests()
+    aioclient_mock.get(f"{URL}/api/v2/servers", json={"status": "ok", "data": [SERVER]})
+    aioclient_mock.get(f"{URL}/api/v2/servers/{SID}/stats", json=stats(SERVER))
+    aioclient_mock.get(f"{URL}/api/v2/servers/{SID}/logs", status=403,
+                       json={"status": "error", "error": "NOT_AUTHORIZED"})
+    aioclient_mock.get(f"{URL}/metrics/host", status=403)
+    entry = MockConfigEntry(domain=DOMAIN, unique_id=URL,
+                            data={CONF_URL: URL, CONF_API_TOKEN: "tok", CONF_VERIFY_SSL: False})
+    entry.add_to_hass(hass)
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+    assert hass.states.get("binary_sensor.bedrock_creative_running").state == "on"
+    assert hass.states.get("sensor.bedrock_creative_players_online").state == "0"
+    assert "lacks the Logs permission" in caplog.text
+    assert hass.states.get("sensor.crafty_controller_host_cpu").state == "unavailable"
+
+
 async def test_entities_and_values(hass, aioclient_mock):
     await setup(hass, aioclient_mock)
     assert hass.states.get("binary_sensor.bedrock_creative_running").state == "on"

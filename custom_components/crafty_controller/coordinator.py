@@ -102,7 +102,13 @@ class CraftyCoordinator(DataUpdateCoordinator[CraftyData]):
         self._versions: dict[str, str] = {}
         self._host_supported = True
         self._first = True
+        self._warned: set[str] = set()
         self.pending_events: list[PlayerEvent] = []
+
+    def _warn_once(self, key: str, msg: str, *args: Any) -> None:
+        if key not in self._warned:
+            self._warned.add(key)
+            _LOGGER.warning(msg, *args)
 
     @property
     def player_source_option(self) -> str:
@@ -133,6 +139,13 @@ class CraftyCoordinator(DataUpdateCoordinator[CraftyData]):
         for server, result in zip(servers, results, strict=True):
             if isinstance(result, ConfigEntryAuthFailed):
                 raise result
+            if isinstance(result, CraftyPermissionError):
+                self._warn_once(
+                    f"stats_{server['server_id']}",
+                    "The Crafty API token can't read stats for server '%s'. Give the key's "
+                    "user a role that includes this server, or use a Full Access key (%s)",
+                    server.get("server_name"), result,
+                )
             if isinstance(result, BaseException):
                 _LOGGER.debug("Update failed for %s: %s", server.get("server_name"), result)
                 sid = str(server["server_id"])
@@ -149,6 +162,7 @@ class CraftyCoordinator(DataUpdateCoordinator[CraftyData]):
                 data.host = await self.api.async_get_host_metrics()
             except CraftyPermissionError:
                 self._host_supported = False
+                _LOGGER.info("Host CPU/memory need a Full Access (superuser) API key; skipping")
             except CraftyError as err:
                 _LOGGER.debug("Host metrics unavailable: %s", err)
                 if self.data:
@@ -186,6 +200,13 @@ class CraftyCoordinator(DataUpdateCoordinator[CraftyData]):
                     log_version = log.version
                 except CraftyAuthError as err:
                     raise ConfigEntryAuthFailed(str(err)) from err
+                except CraftyPermissionError as err:
+                    self._warn_once(
+                        f"logs_{sid}",
+                        "The Crafty API token lacks the Logs permission for server '%s', so "
+                        "players can't be tracked. Add Logs to the API key (%s)",
+                        info.get("server_name"), err,
+                    )
                 except CraftyError as err:
                     _LOGGER.debug("Log read failed for %s: %s", sid, err)
                     if self.data and sid in self.data.servers:

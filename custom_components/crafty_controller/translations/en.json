@@ -3,7 +3,7 @@
     "step": {
       "user": {
         "title": "Connect to Crafty Controller",
-        "description": "Enter the address of your Crafty Controller panel and an API token. Create the token in Crafty under Users → your user → API Keys (Superuser is simplest), then use “Get Token”.",
+        "description": "Enter the address of your Crafty Controller panel and an API token. Create the token in Crafty under Panel Config → Users → Edit → API Keys, then click “Get A Token”. See the README for the exact permissions each feature needs.",
         "data": {
           "url": "Crafty URL",
           "api_token": "API token",
@@ -11,7 +11,7 @@
         },
         "data_description": {
           "url": "For example https://192.168.1.50:8443",
-          "api_token": "The long token string shown by “Get Token” in Crafty.",
+          "api_token": "The long string shown by “Get A Token”. Needs at least the Logs permission for player tracking.",
           "verify_ssl": "Leave off if Crafty uses its default self-signed certificate."
         }
       },
@@ -26,7 +26,7 @@
       },
       "reauth_confirm": {
         "title": "Crafty token expired",
-        "description": "Crafty at {url} rejected the saved API token. Create a new one in Crafty and paste it here.",
+        "description": "Crafty at {url} rejected the saved API token. Create a new key under Panel Config → Users → Edit → API Keys, click “Get A Token” and paste it here.",
         "data": {
           "api_token": "API token"
         }
@@ -73,17 +73,35 @@
   },
   "entity": {
     "binary_sensor": {
-      "running": { "name": "Running" },
-      "crashed": { "name": "Crashed" },
-      "updating": { "name": "Updating" }
+      "running": {
+        "name": "Running"
+      },
+      "crashed": {
+        "name": "Crashed"
+      },
+      "updating": {
+        "name": "Updating"
+      }
     },
     "button": {
-      "start": { "name": "Start" },
-      "stop": { "name": "Stop" },
-      "restart": { "name": "Restart" },
-      "backup": { "name": "Backup" },
-      "kill": { "name": "Force kill" },
-      "update_executable": { "name": "Update server software" }
+      "start": {
+        "name": "Start"
+      },
+      "stop": {
+        "name": "Stop"
+      },
+      "restart": {
+        "name": "Restart"
+      },
+      "backup": {
+        "name": "Backup"
+      },
+      "kill": {
+        "name": "Force kill"
+      },
+      "update_executable": {
+        "name": "Update server software"
+      }
     },
     "event": {
       "player_activity": {
@@ -99,20 +117,44 @@
       }
     },
     "sensor": {
-      "players_online": { "name": "Players online" },
-      "version": { "name": "Version" },
-      "started": { "name": "Started" },
-      "cpu": { "name": "CPU" },
-      "memory": { "name": "Memory" },
-      "memory_percent": { "name": "Memory percent" },
-      "world_size": { "name": "World size" },
-      "world_name": { "name": "World name" },
-      "port": { "name": "Port" },
-      "host_cpu": { "name": "Host CPU" },
-      "host_memory": { "name": "Host memory" }
+      "players_online": {
+        "name": "Players online"
+      },
+      "version": {
+        "name": "Version"
+      },
+      "started": {
+        "name": "Started"
+      },
+      "cpu": {
+        "name": "CPU"
+      },
+      "memory": {
+        "name": "Memory"
+      },
+      "memory_percent": {
+        "name": "Memory percent"
+      },
+      "world_size": {
+        "name": "World size"
+      },
+      "world_name": {
+        "name": "World name"
+      },
+      "port": {
+        "name": "Port"
+      },
+      "host_cpu": {
+        "name": "Host CPU"
+      },
+      "host_memory": {
+        "name": "Host memory"
+      }
     },
     "switch": {
-      "server": { "name": "Server" }
+      "server": {
+        "name": "Server"
+      }
     }
   },
   "services": {
