@@ -142,6 +142,10 @@ actions:
 - Crafty's host metrics come from its `/metrics/host` endpoint. If your token can't read it, the host sensors just stay unavailable.
 - Tested against the Crafty 4 API v2 spec. Please open an issue with a diagnostics download if something looks off.
 
+## Releases
+
+Releases are created automatically. When `version` in `manifest.json` changes on `main`, the **Release** workflow tags it (`vX.Y.Z`) using the matching section of [CHANGELOG.md](CHANGELOG.md) as release notes, and HACS offers it as an update. To ship a change, bump `version` in `manifest.json`, `VERSION` in `const.py` and `CARD_VERSION` in the card, add a CHANGELOG section, and push.
+
 ## Development
 
 ```bash
