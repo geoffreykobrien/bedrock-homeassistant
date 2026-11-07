@@ -149,6 +149,9 @@
       },
       "host_memory": {
         "name": "Host memory"
+      },
+      "players_total": {
+        "name": "Players online"
       }
     },
     "switch": {

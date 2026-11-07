@@ -180,6 +180,18 @@ async def test_entities_and_values(hass, aioclient_mock):
     assert dev.model == "Minecraft Bedrock"
 
 
+async def test_total_players_sensor(hass, aioclient_mock):
+    await setup(hass, aioclient_mock)
+    total = hass.states.get("sensor.crafty_controller_players_online")
+    assert total.state == "2"
+    by_name = {s["name"]: s for s in total.attributes["servers"]}
+    assert by_name["Bedrock Creative"]["count"] == 1
+    assert by_name["Bedrock Creative"]["players"][0]["name"] == "Liam OB"
+    assert by_name["Paper Survival"]["players"][0]["name"] == "Steve"
+    assert total.attributes["players"] == ["Liam OB", "Steve"]
+    assert total.attributes["servers_with_players"] == 2
+
+
 async def test_join_event(hass, aioclient_mock):
     await setup(hass, aioclient_mock)
     events = []

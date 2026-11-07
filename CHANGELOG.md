@@ -4,6 +4,13 @@ To release: bump `version` in `manifest.json` (plus `VERSION` in `const.py` and
 `CARD_VERSION` in the card), add a section below, and push to `main`. The Release
 workflow tags it and HACS picks it up.
 
+## 0.2.0
+
+### Added
+- **Players online** sensor on the Crafty Controller device. It counts players across every server, and its attributes list each server with its players and when they joined. Use it to show a tile only while someone is playing, without templates.
+- **Crafty Players Online** dashboard card (`custom:crafty-players-card`). It lists every server with players: the server name as a header, then each player with how long they've been connected. It has a visual editor, plus options to hide itself when nobody's on and to drop its background for use inside pop-ups.
+- README example of a footer tile and pop-up built with Bubble Card and button-card.
+
 ## 0.1.1
 
 ### Fixed

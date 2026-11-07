@@ -15,17 +15,21 @@ Why this exists: Bedrock Dedicated Server 1.26.60+ switched to the NetherNet tra
   - Server power switch (on starts the server, off stops it gracefully)
   - Start, Stop, Restart and Backup buttons, plus Force kill and Update server software, which are disabled by default
   - **Player activity** event entity (`joined` / `left`) for automations
-- **Crafty host device** with Host CPU and Host memory sensors
+- **Crafty host device** with **Players online** (total across every server, with a per-server breakdown) plus Host CPU and Host memory sensors
 - **Events** on the bus: `crafty_controller_player_joined` / `crafty_controller_player_left`
 - **Service** `crafty_controller.send_command`: send any console command, such as `say Dinner in 10!` or `gamemode creative @a`
-- **Dashboard card** (`custom:crafty-server-card`), registered automatically with a visual editor, so there's no resource to add by hand
+- **Two dashboard cards**, both registered automatically with visual editors, so there's no resource to add by hand:
+  - `custom:crafty-server-card` shows one server's status, players, stats and controls
+  - `custom:crafty-players-card` lists everyone online across all servers, grouped by server, with time connected
 - **Diagnostics** download, with the token and paths redacted
 
 ## Install
 
-### HACS (recommended)
-1. In HACS, open ⋮ → **Custom repositories**, add `https://github.com/geoffreykobrien/bedrock-homeassistant`, and choose category **Integration**.
+### Marketplace (Home Assistant 2026.11+) or HACS
+1. On 2026.11 or later, go to **Settings → Marketplace → Add from link**. On older versions, open HACS ⋮ → **Custom repositories**. Add `https://github.com/geoffreykobrien/bedrock-homeassistant` as an **Integration**.
 2. Install **Crafty Controller**, then restart Home Assistant.
+
+New versions are published as GitHub releases and show up under **Settings → Updates**.
 
 ### Manual
 Copy `custom_components/crafty_controller` into your `config/custom_components/` folder and restart.
@@ -93,6 +97,55 @@ show_players: true
 show_stats: true
 show_controls: true      # Stop and Restart ask for a second tap to confirm
 ```
+
+## Players online card
+
+`custom:crafty-players-card` lists every server that has players. Each server gets a header, with its players underneath and how long each has been connected on the right. Empty servers are left out.
+
+```yaml
+type: custom:crafty-players-card
+title: Minecraft          # optional
+hide_when_empty: false    # true hides the whole card when nobody is on
+transparent: false        # true removes the card background (for pop-ups)
+# entity: sensor.crafty_controller_players_online   # optional, auto-detected
+```
+
+### Example: footer tile and pop-up (Bubble Card + button-card)
+
+A tile that only appears when someone is playing, shows the total count, and opens a pop-up with the list:
+
+```yaml
+# The tile
+type: custom:button-card
+entity: sensor.crafty_controller_players_online
+name: Minecraft
+icon: mdi:minecraft
+show_state: true
+tap_action:
+  action: navigate
+  navigation_path: "#minecraft"
+visibility:
+  - condition: numeric_state
+    entity: sensor.crafty_controller_players_online
+    above: 0
+```
+
+```yaml
+# The pop-up
+type: custom:bubble-card
+card_type: pop-up
+hash: "#minecraft"
+name: Minecraft
+icon: mdi:minecraft
+show_header: false
+popup_mode: fit-content
+auto_close: "15000"
+cards:
+  - type: custom:crafty-players-card
+    transparent: true
+```
+
+You can do the same without custom cards: a built-in tile card for `sensor.crafty_controller_players_online` with the same `visibility` rule, plus a `crafty-players-card` in its own section.
 
 ## Player tracking
 

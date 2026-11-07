@@ -6,7 +6,7 @@ from typing import Final
 
 DOMAIN: Final = "crafty_controller"
 NAME: Final = "Crafty Controller"
-VERSION: Final = "0.1.1"
+VERSION: Final = "0.2.0"
 
 CONF_VERIFY_SSL: Final = "verify_ssl"
 CONF_SCAN_INTERVAL: Final = "scan_interval"

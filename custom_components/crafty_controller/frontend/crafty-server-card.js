@@ -9,7 +9,7 @@
  *   show_stats: true
  *   show_controls: true
  */
-const CARD_VERSION = "0.1.1";
+const CARD_VERSION = "0.2.0";
 const PLATFORM = "crafty_controller";
 
 const KEYS = {
@@ -383,6 +383,188 @@ class CraftyServerCardEditor extends HTMLElement {
   }
 }
 
+
+/* ------------------------------------------------------------------------
+ * Crafty Players Online card: every server with players, each as a header
+ * followed by its players and how long they've been connected.
+ *
+ *   type: custom:crafty-players-card
+ *   entity: sensor.crafty_controller_players_online   # optional, auto-detected
+ *   title: Minecraft                                   # optional
+ *   hide_when_empty: false
+ *   transparent: false   # no card background (e.g. inside a Bubble Card pop-up)
+ * ---------------------------------------------------------------------- */
+function findTotalSensor(hass) {
+  const entries = Object.values(hass?.entities || {}).filter(
+    (e) => e.platform === PLATFORM && e.entity_id.startsWith("sensor.")
+  );
+  const match =
+    entries.find((e) => e.translation_key === "players_total") ||
+    entries.find((e) => Array.isArray(hass.states[e.entity_id]?.attributes?.servers));
+  return match ? match.entity_id : undefined;
+}
+
+class CraftyPlayersCard extends HTMLElement {
+  static getConfigElement() {
+    return document.createElement("crafty-players-card-editor");
+  }
+
+  static getStubConfig(hass) {
+    return { entity: findTotalSensor(hass) || "" };
+  }
+
+  setConfig(config) {
+    if (!config) throw new Error("Invalid configuration");
+    this._config = { hide_when_empty: false, transparent: false, ...config };
+    if (!this.shadowRoot) this.attachShadow({ mode: "open" });
+    this._lastKey = null;
+    this._render();
+  }
+
+  set hass(hass) {
+    this._hass = hass;
+    const id = this._config?.entity || findTotalSensor(hass);
+    this._entity = id;
+    const s = id ? hass.states[id] : undefined;
+    const key = s ? `${s.state}|${s.last_updated}` : "none";
+    if (key !== this._lastKey) {
+      this._lastKey = key;
+      this._render();
+    }
+  }
+
+  connectedCallback() {
+    this._tick = setInterval(() => this._render(), 60000);
+  }
+
+  disconnectedCallback() {
+    clearInterval(this._tick);
+  }
+
+  getCardSize() {
+    return 3;
+  }
+
+  _render() {
+    if (!this.shadowRoot || !this._config) return;
+    const cfg = this._config;
+    const hass = this._hass;
+    if (!hass) return;
+    const state = this._entity ? hass.states[this._entity] : undefined;
+    if (!state) {
+      this.style.display = "";
+      this.shadowRoot.innerHTML = `${PLAYERS_STYLE}<ha-card><div class="empty">No Crafty "Players online" sensor found. Update the Crafty Controller integration to 0.2.0 or pick the sensor in the card editor.</div></ha-card>`;
+      return;
+    }
+    const servers = (state.attributes.servers || []).filter((s) => (s.players || []).length);
+    if (!servers.length && cfg.hide_when_empty) {
+      this.style.display = "none";
+      this.shadowRoot.innerHTML = "";
+      return;
+    }
+    this.style.display = "";
+
+    const body = servers.length
+      ? servers
+          .map(
+            (sv) => `
+        <div class="server">
+          <div class="server-head">
+            <ha-icon icon="mdi:minecraft"></ha-icon>
+            <span class="server-name">${esc(sv.name)}</span>
+            <span class="server-count">${sv.players.length} online</span>
+          </div>
+          ${sv.players
+            .map(
+              (p) => `
+            <div class="player">
+              <span class="pname">${esc(p.name)}</span>
+              <span class="since">${esc(duration(p.since))}</span>
+            </div>`
+            )
+            .join("")}
+        </div>`
+          )
+          .join("")
+      : `<div class="empty">Nobody is playing right now</div>`;
+
+    this.shadowRoot.innerHTML = `${PLAYERS_STYLE}
+      <ha-card class="${cfg.transparent ? "transparent" : ""}">
+        ${cfg.title ? `<div class="title">${esc(cfg.title)}</div>` : ""}
+        ${body}
+      </ha-card>`;
+  }
+}
+
+const PLAYERS_STYLE = `<style>
+  ha-card { padding: 12px 16px; }
+  ha-card.transparent { background: none; box-shadow: none; border: none; }
+  .title { font-size: 1.2em; font-weight: 600; margin-bottom: 8px; }
+  .empty { color: var(--secondary-text-color); padding: 6px 0; }
+  .server + .server { margin-top: 16px; }
+  .server-head { display: flex; align-items: center; gap: 8px; font-size: 1.1em; font-weight: 600;
+    padding-bottom: 6px; margin-bottom: 4px; border-bottom: 1px solid var(--divider-color); }
+  .server-head ha-icon { --mdc-icon-size: 20px; color: var(--success-color, #4caf50); }
+  .server-count { margin-left: auto; font-size: .8em; font-weight: 400; color: var(--secondary-text-color); }
+  .player { display: flex; justify-content: space-between; gap: 24px; padding: 6px 0 6px 28px; }
+  .pname { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .since { color: var(--secondary-text-color); font-variant-numeric: tabular-nums; white-space: nowrap; }
+</style>`;
+
+const PLAYERS_EDITOR_SCHEMA = [
+  { name: "entity", selector: { entity: { integration: PLATFORM, domain: "sensor" } } },
+  { name: "title", selector: { text: {} } },
+  {
+    type: "grid",
+    name: "",
+    schema: [
+      { name: "hide_when_empty", selector: { boolean: {} } },
+      { name: "transparent", selector: { boolean: {} } },
+    ],
+  },
+];
+
+const PLAYERS_EDITOR_LABELS = {
+  entity: "Players online sensor (leave empty to auto-detect)",
+  title: "Title (optional)",
+  hide_when_empty: "Hide when nobody is playing",
+  transparent: "No background (for pop-ups)",
+};
+
+class CraftyPlayersCardEditor extends HTMLElement {
+  setConfig(config) {
+    this._config = config;
+    this._update();
+  }
+
+  set hass(hass) {
+    this._hass = hass;
+    this._update();
+  }
+
+  _update() {
+    if (!this._hass || !this._config) return;
+    if (!this._form) {
+      this._form = document.createElement("ha-form");
+      this._form.computeLabel = (s) => PLAYERS_EDITOR_LABELS[s.name] ?? s.name;
+      this._form.addEventListener("value-changed", (ev) => {
+        this._config = ev.detail.value;
+        this.dispatchEvent(
+          new CustomEvent("config-changed", { detail: { config: this._config }, bubbles: true, composed: true })
+        );
+      });
+      this.appendChild(this._form);
+    }
+    this._form.hass = this._hass;
+    this._form.schema = PLAYERS_EDITOR_SCHEMA;
+    this._form.data = { hide_when_empty: false, transparent: false, ...this._config };
+  }
+}
+
+if (!customElements.get("crafty-players-card")) customElements.define("crafty-players-card", CraftyPlayersCard);
+if (!customElements.get("crafty-players-card-editor"))
+  customElements.define("crafty-players-card-editor", CraftyPlayersCardEditor);
+
 if (!customElements.get("crafty-server-card")) customElements.define("crafty-server-card", CraftyServerCard);
 if (!customElements.get("crafty-server-card-editor"))
   customElements.define("crafty-server-card-editor", CraftyServerCardEditor);
@@ -393,6 +575,16 @@ if (!window.customCards.some((c) => c.type === "crafty-server-card")) {
     type: "crafty-server-card",
     name: "Crafty Minecraft Server",
     description: "Status, players, stats and controls for a Minecraft server managed by Crafty Controller.",
+    preview: true,
+    documentationURL: "https://github.com/geoffreykobrien/bedrock-homeassistant",
+  });
+}
+
+if (!window.customCards.some((c) => c.type === "crafty-players-card")) {
+  window.customCards.push({
+    type: "crafty-players-card",
+    name: "Crafty Players Online",
+    description: "Everyone online across your Crafty Minecraft servers, grouped by server, with time connected.",
     preview: true,
     documentationURL: "https://github.com/geoffreykobrien/bedrock-homeassistant",
   });

@@ -19,7 +19,7 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.util import dt as dt_util
 
 from . import CraftyConfigEntry
-from .coordinator import CraftyCoordinator, ServerData, player_since
+from .coordinator import CraftyCoordinator, Player, ServerData, player_since
 from .entity import CraftyHubEntity, CraftyServerEntity, setup_dynamic_servers
 from .parsing import clean_str, parse_started, size_to_mib, to_float, to_int
 
@@ -105,9 +105,25 @@ async def async_setup_entry(
 
     entry.async_on_unload(setup_dynamic_servers(coordinator, async_add_entities, _factory))
     async_add_entities(
-        [CraftyHostSensor(coordinator, "host_cpu", "CPU_Usage"),
+        [CraftyTotalPlayersSensor(coordinator),
+         CraftyHostSensor(coordinator, "host_cpu", "CPU_Usage"),
          CraftyHostSensor(coordinator, "host_memory", "Mem_Usage")]
     )
+
+
+def _player_dict(player: Player) -> dict[str, Any]:
+    since = player_since(player)
+    return {
+        "name": player.name,
+        "since": since.isoformat() if since else None,
+        **({"xuid": player.xuid} if player.xuid else {}),
+    }
+
+
+def _sorted_players(server: ServerData) -> list[Player]:
+    if not server.running:
+        return []
+    return sorted(server.players.values(), key=lambda p: p.name.lower())
 
 
 class CraftyServerSensor(CraftyServerEntity, SensorEntity):
@@ -127,17 +143,10 @@ class CraftyServerSensor(CraftyServerEntity, SensorEntity):
         server = self.server
         if server is None or self.entity_description.key != "players_online":
             return None
-        players = sorted(server.players.values(), key=lambda p: p.name.lower()) if server.running else []
+        players = _sorted_players(server)
         return {
             "players": [p.name for p in players],
-            "player_details": [
-                {
-                    "name": p.name,
-                    "since": (since.isoformat() if (since := player_since(p)) else None),
-                    **({"xuid": p.xuid} if p.xuid else {}),
-                }
-                for p in players
-            ],
+            "player_details": [_player_dict(p) for p in players],
             "max_players": server.max_players,
             "source": server.player_source,
             "edition": "bedrock" if server.bedrock else "java",
@@ -160,3 +169,47 @@ class CraftyHostSensor(CraftyHubEntity, SensorEntity):
     @property
     def native_value(self) -> float | None:
         return self.coordinator.data.host.get(self._metric) if self.coordinator.data else None
+
+
+class CraftyTotalPlayersSensor(CraftyHubEntity, SensorEntity):
+    """Players online across every server, with a per-server breakdown."""
+
+    _attr_state_class = SensorStateClass.MEASUREMENT
+    _attr_native_unit_of_measurement = "players"
+
+    def __init__(self, coordinator: CraftyCoordinator) -> None:
+        super().__init__(coordinator, "players_total")
+
+    def _servers(self) -> list[ServerData]:
+        data = self.coordinator.data
+        if not data:
+            return []
+        return sorted(
+            (s for s in data.servers.values() if s.available),
+            key=lambda s: s.name.lower(),
+        )
+
+    @property
+    def native_value(self) -> int:
+        return sum(len(_sorted_players(s)) for s in self._servers())
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        servers = self._servers()
+        return {
+            "servers": [
+                {
+                    "server_id": s.server_id,
+                    "name": s.name,
+                    "running": s.running,
+                    "edition": "bedrock" if s.bedrock else "java",
+                    "count": len(players := _sorted_players(s)),
+                    "players": [_player_dict(p) for p in players],
+                }
+                for s in servers
+            ],
+            "players": sorted(
+                {p.name for s in servers for p in _sorted_players(s)}, key=str.lower
+            ),
+            "servers_with_players": sum(1 for s in servers if _sorted_players(s)),
+        }
