@@ -1,0 +1,134 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Connect to Crafty Controller",
+        "description": "Enter the address of your Crafty Controller panel and an API token. Create the token in Crafty under Users → your user → API Keys (Superuser is simplest), then use “Get Token”.",
+        "data": {
+          "url": "Crafty URL",
+          "api_token": "API token",
+          "verify_ssl": "Verify SSL certificate"
+        },
+        "data_description": {
+          "url": "For example https://192.168.1.50:8443",
+          "api_token": "The long token string shown by “Get Token” in Crafty.",
+          "verify_ssl": "Leave off if Crafty uses its default self-signed certificate."
+        }
+      },
+      "reconfigure": {
+        "title": "Reconfigure Crafty Controller",
+        "description": "Change the Crafty address, token or certificate setting. Leave the token blank to keep the current one.",
+        "data": {
+          "url": "Crafty URL",
+          "api_token": "API token",
+          "verify_ssl": "Verify SSL certificate"
+        }
+      },
+      "reauth_confirm": {
+        "title": "Crafty token expired",
+        "description": "Crafty at {url} rejected the saved API token. Create a new one in Crafty and paste it here.",
+        "data": {
+          "api_token": "API token"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Could not reach Crafty. Check the address and port (default 8443).",
+      "ssl_error": "SSL certificate check failed. Turn off “Verify SSL certificate” for Crafty's self-signed certificate.",
+      "invalid_auth": "Crafty rejected the API token.",
+      "not_crafty": "That address responded, but not like a Crafty Controller 4 panel.",
+      "unknown": "Unexpected error, see the Home Assistant log."
+    },
+    "abort": {
+      "already_configured": "This Crafty panel is already set up.",
+      "reconfigure_successful": "Crafty Controller was reconfigured.",
+      "reauth_successful": "Token updated."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Crafty Controller options",
+        "data": {
+          "scan_interval": "Update interval",
+          "player_source": "Player tracking",
+          "servers": "Servers to include"
+        },
+        "data_description": {
+          "scan_interval": "How often to poll Crafty.",
+          "player_source": "Bedrock 1.26.60+ servers can't be pinged, so Automatic reads joins and leaves from the server log for them.",
+          "servers": "Leave empty to include every server, including ones you create later."
+        }
+      }
+    }
+  },
+  "selector": {
+    "player_source": {
+      "options": {
+        "auto": "Automatic (log for Bedrock, Crafty ping for Java)",
+        "crafty": "Crafty's ping data",
+        "logs": "Server log"
+      }
+    }
+  },
+  "entity": {
+    "binary_sensor": {
+      "running": { "name": "Running" },
+      "crashed": { "name": "Crashed" },
+      "updating": { "name": "Updating" }
+    },
+    "button": {
+      "start": { "name": "Start" },
+      "stop": { "name": "Stop" },
+      "restart": { "name": "Restart" },
+      "backup": { "name": "Backup" },
+      "kill": { "name": "Force kill" },
+      "update_executable": { "name": "Update server software" }
+    },
+    "event": {
+      "player_activity": {
+        "name": "Player activity",
+        "state_attributes": {
+          "event_type": {
+            "state": {
+              "joined": "Joined",
+              "left": "Left"
+            }
+          }
+        }
+      }
+    },
+    "sensor": {
+      "players_online": { "name": "Players online" },
+      "version": { "name": "Version" },
+      "started": { "name": "Started" },
+      "cpu": { "name": "CPU" },
+      "memory": { "name": "Memory" },
+      "memory_percent": { "name": "Memory percent" },
+      "world_size": { "name": "World size" },
+      "world_name": { "name": "World name" },
+      "port": { "name": "Port" },
+      "host_cpu": { "name": "Host CPU" },
+      "host_memory": { "name": "Host memory" }
+    },
+    "switch": {
+      "server": { "name": "Server" }
+    }
+  },
+  "services": {
+    "send_command": {
+      "name": "Send console command",
+      "description": "Sends a command to a Minecraft server's console through Crafty, as if typed in the Terminal tab.",
+      "fields": {
+        "device_id": {
+          "name": "Server",
+          "description": "One or more Minecraft server devices."
+        },
+        "command": {
+          "name": "Command",
+          "description": "Console command without the leading slash, e.g. say hello or gamemode creative @a."
+        }
+      }
+    }
+  }
+}

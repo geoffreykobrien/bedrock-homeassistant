@@ -1,0 +1,16 @@
+send_command:
+  fields:
+    device_id:
+      required: true
+      selector:
+        device:
+          multiple: true
+          filter:
+            integration: crafty_controller
+          entity:
+            domain: switch
+    command:
+      required: true
+      example: "say Dinner in 10 minutes!"
+      selector:
+        text:

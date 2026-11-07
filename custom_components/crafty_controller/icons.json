@@ -1,0 +1,36 @@
+{
+  "entity": {
+    "binary_sensor": {
+      "running": { "default": "mdi:minecraft" },
+      "crashed": { "default": "mdi:alert-octagon" }
+    },
+    "button": {
+      "start": { "default": "mdi:play" },
+      "stop": { "default": "mdi:stop" },
+      "backup": { "default": "mdi:backup-restore" },
+      "kill": { "default": "mdi:skull-crossbones" }
+    },
+    "event": {
+      "player_activity": { "default": "mdi:account-switch" }
+    },
+    "sensor": {
+      "players_online": { "default": "mdi:account-group" },
+      "version": { "default": "mdi:tag-outline" },
+      "started": { "default": "mdi:clock-start" },
+      "cpu": { "default": "mdi:cpu-64-bit" },
+      "memory": { "default": "mdi:memory" },
+      "memory_percent": { "default": "mdi:memory" },
+      "world_size": { "default": "mdi:earth" },
+      "world_name": { "default": "mdi:map" },
+      "port": { "default": "mdi:ethernet" },
+      "host_cpu": { "default": "mdi:server" },
+      "host_memory": { "default": "mdi:memory" }
+    },
+    "switch": {
+      "server": { "default": "mdi:power" }
+    }
+  },
+  "services": {
+    "send_command": { "service": "mdi:console" }
+  }
+}
